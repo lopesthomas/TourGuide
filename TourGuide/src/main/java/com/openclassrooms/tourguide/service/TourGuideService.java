@@ -89,7 +89,19 @@ public class TourGuideService {
 	}
 
 	public VisitedLocation trackUserLocation(User user) {
+		if (user.getVisitedLocations().size() > 0) {
+			// If the user has already visited locations, update the latest location timestamp
+			System.out.println("Updating latest location timestamp for user: " + user.getUserName());
+			System.out.println();
+			user.setLatestLocationTimestamp(new Date());
+		} else {
+			// If this is the first visit, set the timestamp to now
+			System.out.println("Setting latest location timestamp for user: " + user.getUserName());
+			user.setLatestLocationTimestamp(new Date());
+		}
+		
 		VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId());
+	
 		user.addToVisitedLocations(visitedLocation);
 		rewardsService.calculateRewards(user);
 		return visitedLocation;
