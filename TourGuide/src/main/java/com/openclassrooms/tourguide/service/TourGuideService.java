@@ -1,13 +1,7 @@
 package com.openclassrooms.tourguide.service;
 
-import com.openclassrooms.tourguide.helper.InternalTestHelper;
-import com.openclassrooms.tourguide.tracker.Tracker;
-import com.openclassrooms.tourguide.user.User;
-import com.openclassrooms.tourguide.user.UserReward;
-
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -16,6 +10,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -23,11 +21,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.openclassrooms.tourguide.helper.InternalTestHelper;
+import com.openclassrooms.tourguide.tracker.Tracker;
+import com.openclassrooms.tourguide.user.User;
+import com.openclassrooms.tourguide.user.UserReward;
+
 import gpsUtil.GpsUtil;
 import gpsUtil.location.Attraction;
 import gpsUtil.location.Location;
 import gpsUtil.location.VisitedLocation;
-
 import tripPricer.Provider;
 import tripPricer.TripPricer;
 
@@ -90,22 +92,30 @@ public class TourGuideService {
 	}
 
 	public VisitedLocation trackUserLocation(User user) {
-		if (user.getVisitedLocations().size() > 0) {
-			// If the user has already visited locations, update the latest location timestamp
-			System.out.println("Updating latest location timestamp for user: " + user.getUserName());
-			System.out.println();
-			user.setLatestLocationTimestamp(new Date());
-		} else {
-			// If this is the first visit, set the timestamp to now
-			System.out.println("Setting latest location timestamp for user: " + user.getUserName());
-			user.setLatestLocationTimestamp(new Date());
+		try {
+			return trackUserLocationAsync(user).get();
+		} catch (InterruptedException | ExecutionException e) {
+			throw new RuntimeException(e);
 		}
+	}
+
+	private final ExecutorService executorService = Executors.newFixedThreadPool(100);
+
+	public CompletableFuture<VisitedLocation> trackUserLocationAsync(User user) {
+		return CompletableFuture.supplyAsync(() -> {
+			VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId());
 		
-		VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId());
-	
-		user.addToVisitedLocations(visitedLocation);
-		rewardsService.calculateRewards(user);
-		return visitedLocation;
+			user.addToVisitedLocations(visitedLocation);
+			rewardsService.calculateRewards(user);
+			return visitedLocation;
+		  }, executorService);
+	}
+
+	public void trackAllUsersLocationAsync(List<User> users) {
+		List<CompletableFuture<VisitedLocation>> visitedLocationFutures = users.stream()
+			.map(this::trackUserLocationAsync)
+			.toList();
+		visitedLocationFutures.forEach(CompletableFuture::join);
 	}
 
 	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
