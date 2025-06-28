@@ -70,7 +70,7 @@ public class RewardsService {
 
 	public void calculateAllRewardsAsync(List<User> users) {
 		List<CompletableFuture<Void>> futures = users.stream()
-				.map(user -> CompletableFuture.runAsync(() -> calculateRewards(user), executorService))
+				.map(this::calculateRewards)
 				.collect(Collectors.toList());
 
 		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
