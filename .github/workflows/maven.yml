@@ -30,17 +30,17 @@ jobs:
         cache: maven
 
     - name: Run Tests
-      run: mvn -B test --file pom.xml
+      run: mvn -B test --file TourGuide/pom.xml
         
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn -B package --file TourGuide/pom.xml
 
     - name: Upload Test Results
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: test-results
-        path: target/surefire-reports
+        path: TourGuide/target/surefire-reports
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
